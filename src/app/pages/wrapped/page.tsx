@@ -2,106 +2,181 @@
 
 import Image from 'next/image';
 import { Pixelify_Sans } from 'next/font/google';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import UserStats from '@/app/components/UserStats';
 import ArtistQuiz from '@/app/components/ArtistQuiz';
 import TopArtists from '@/app/components/TopArtists';
 import TopAlbums from '@/app/components/TopAlbums';
 import TopHits from '@/app/components/TopHits';
+import HitsAnalysis from '@/app/components/HitsAnalysis';
 
 const pixelifySans = Pixelify_Sans({ 
   subsets: ['latin'],
   weight: ['400', '700']
 });
 
+// Constants
 const ANIMATION_DURATION = 3100;
 const TRANSITION_DELAY = 500;
 const FADE_DURATION = 1000;
 const USER_STATS_DURATION = 5000;
 
+// Updated sequence states type
+type SequenceState = 
+  | 'INITIAL'
+  | 'USER_STATS'
+  | 'ARTIST_QUIZ'
+  | 'TOP_ARTISTS'
+  | 'TOP_ALBUMS'
+  | 'TOP_HITS'
+  | 'HITS_ANALYSIS'
+  | 'COMPLETE';
+
 export default function Wrapped() {
-  // Main visibility and text states
+  // Main state
+  const [sequenceState, setSequenceState] = useState<SequenceState>('INITIAL');
   const [isVisible, setIsVisible] = useState(false);
-  const [currentText, setCurrentText] = useState('WELCOME TO SPOTIFY WRAPPED!');
-  const [showText, setShowText] = useState(true);
-
-  // Component visibility states
-  const [showUserStats, setShowUserStats] = useState(false);
-  const [showArtistQuiz, setShowArtistQuiz] = useState(false);
-  const [showTopArtists, setShowTopArtists] = useState(false);
-  const [showTopAlbums, setShowTopAlbums] = useState(false);
-  const [showTopHits, setShowTopHits] = useState(false);
-
-  // Fading states
-  const [isUserStatsFading, setIsUserStatsFading] = useState(false);
-  const [isArtistQuizFading, setIsArtistQuizFading] = useState(false);
-  const [isTopArtistsFading, setIsTopArtistsFading] = useState(false);
-  const [isTopAlbumsFading, setIsTopAlbumsFading] = useState(false);
-  const [isTopHitsFading, setIsTopHitsFading] = useState(false);
-
-  const showMessage = useCallback(async (message: string) => {
-    if (showTopHits) return;
   
-    setCurrentText(message);
-    setShowText(true);
+  // Text state
+  const [messageState, setMessageState] = useState({
+    text: 'WELCOME TO SPOTIFY WRAPPED!',
+    isVisible: true
+  });
+
+  // Component states with single fading state
+  const [componentStates, setComponentStates] = useState({
+    userStats: { show: false, fading: false },
+    artistQuiz: { show: false, fading: false },
+    topArtists: { show: false, fading: false },
+    topAlbums: { show: false, fading: false },
+    topHits: { show: false, fading: false },
+    hitsAnalysis: { show: false, fading: false }
+  });
+
+  // Refs for preventing race conditions
+  const isTransitioning = useRef(false);
+  const currentSequence = useRef<SequenceState>('INITIAL');
+
+  // Helper function to show message with proper timing
+  const showMessage = useCallback(async (message: string): Promise<void> => {
+    if (isTransitioning.current) return;
+    
+    setMessageState({ text: message, isVisible: true });
     await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
     
-    if (!showTopHits) {
-      setShowText(false);
+    if (currentSequence.current !== 'COMPLETE') {
+      setMessageState(prev => ({ ...prev, isVisible: false }));
       await new Promise(resolve => setTimeout(resolve, TRANSITION_DELAY));
     }
-  }, [showTopHits]);
-
-  const fadeOutComponent = useCallback(async (
-    setFading: (value: boolean) => void,
-    setShow: (value: boolean) => void
-  ) => {
-    setFading(true);
-    await new Promise(resolve => setTimeout(resolve, FADE_DURATION));
-    setShow(false);
-    setFading(false);
   }, []);
 
+  // Helper function to fade out a component
+  const fadeOutComponent = useCallback(async (
+    componentKey: keyof typeof componentStates
+  ): Promise<void> => {
+    if (isTransitioning.current) return;
+    
+    isTransitioning.current = true;
+    setComponentStates(prev => ({
+      ...prev,
+      [componentKey]: { ...prev[componentKey], fading: true }
+    }));
+
+    await new Promise(resolve => setTimeout(resolve, FADE_DURATION));
+
+    setComponentStates(prev => ({
+      ...prev,
+      [componentKey]: { show: false, fading: false }
+    }));
+    
+    isTransitioning.current = false;
+  }, []);
+
+  // Component completion handlers
   const handleQuizComplete = useCallback(async () => {
-    await fadeOutComponent(setIsArtistQuizFading, setShowArtistQuiz);
-    setShowTopArtists(true);
+    if (currentSequence.current !== 'ARTIST_QUIZ') return;
+    
+    await fadeOutComponent('artistQuiz');
+    setSequenceState('TOP_ARTISTS');
+    setComponentStates(prev => ({
+      ...prev,
+      topArtists: { show: true, fading: false }
+    }));
   }, [fadeOutComponent]);
 
   const handleTopArtistsComplete = useCallback(async () => {
-    await fadeOutComponent(setIsTopArtistsFading, setShowTopArtists);
-    
+    if (currentSequence.current !== 'TOP_ARTISTS') return;
+
+    await fadeOutComponent('topArtists');
     await showMessage('THESE TOP ARTISTS DOMINATED CHARTS');
     await showMessage('...BUT WHICH ALBUMS');
     await showMessage('HAD EVERYONE HITTING REPEAT?');
     
-    setShowTopAlbums(true);
+    setSequenceState('TOP_ALBUMS');
+    setComponentStates(prev => ({
+      ...prev,
+      topAlbums: { show: true, fading: false }
+    }));
   }, [fadeOutComponent, showMessage]);
 
   const handleTopAlbumsComplete = useCallback(async () => {
-    if (showTopHits) return;
-  
-    await fadeOutComponent(setIsTopAlbumsFading, setShowTopAlbums);
-    
-    if (!showTopHits) {
-      await showMessage('NOW, LET\'S DIVE INTO SONGS THAT DEFINED SPOTIFY THIS YEAR');
-      await showMessage('DID ANY OF YOUR FAVORITES MAKE THE LIST?');
-      setShowTopHits(true);
-    }
-  }, [fadeOutComponent, showMessage, showTopHits]);
+    if (currentSequence.current !== 'TOP_ALBUMS') return;
 
+    await fadeOutComponent('topAlbums');
+    await showMessage('NOW, LET\'S DIVE INTO SONGS THAT DEFINED SPOTIFY THIS YEAR');
+    await showMessage('DID ANY OF YOUR FAVORITES MAKE THE LIST?');
+    
+    setSequenceState('TOP_HITS');
+    setComponentStates(prev => ({
+      ...prev,
+      topHits: { show: true, fading: false }
+    }));
+  }, [fadeOutComponent, showMessage]);
+
+  const handleTopHitsComplete = useCallback(async () => {
+    if (currentSequence.current !== 'TOP_HITS') return;
+
+    await fadeOutComponent('topHits');
+    await showMessage('LET\'S ANALYZE YOUR MUSICAL TASTE');
+    
+    setSequenceState('HITS_ANALYSIS');
+    setComponentStates(prev => ({
+      ...prev,
+      hitsAnalysis: { show: true, fading: false }
+    }));
+  }, [fadeOutComponent, showMessage]);
+
+  const handleHitsAnalysisComplete = useCallback(async () => {
+    if (currentSequence.current !== 'HITS_ANALYSIS') return;
+
+    await fadeOutComponent('hitsAnalysis');
+    setSequenceState('COMPLETE');
+    await showMessage('THANKS FOR RELIVING YOUR YEAR IN MUSIC!');
+  }, [fadeOutComponent, showMessage]);
+
+  // Main sequence controller
   const sequence = useCallback(async () => {
     await showMessage('WELCOME TO SPOTIFY WRAPPED!');
     await showMessage('THIS YEAR WAS FULL OF\nMEMORABLE MUSIC MOMENTS');
     
-    setShowUserStats(true);
+    setSequenceState('USER_STATS');
+    setComponentStates(prev => ({
+      ...prev,
+      userStats: { show: true, fading: false }
+    }));
+
     await new Promise(resolve => setTimeout(resolve, USER_STATS_DURATION));
-    await fadeOutComponent(setIsUserStatsFading, setShowUserStats);
+    await fadeOutComponent('userStats');
     
     await showMessage('BUT ONE ARTIST TOOK THE SPOTLIGHT');
     await showMessage('...WITH OVER 26.6 BILLION STREAMS!');
     await showMessage('CAN YOU GUESS WHO CLAIMED\nTHE CROWN THIS YEAR?');
     
-    setShowArtistQuiz(true);
+    setSequenceState('ARTIST_QUIZ');
+    setComponentStates(prev => ({
+      ...prev,
+      artistQuiz: { show: true, fading: false }
+    }));
   }, [showMessage, fadeOutComponent]);
 
   // Initial sequence trigger
@@ -110,49 +185,40 @@ export default function Wrapped() {
     void sequence();
   }, [sequence]);
 
+  // Sequence state tracker
+  useEffect(() => {
+    currentSequence.current = sequenceState;
+  }, [sequenceState]);
+
   // Global spacebar handler
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault();
-        if (showTopArtists && !isTopArtistsFading) {
+      if (event.code !== 'Space' || isTransitioning.current) return;
+      event.preventDefault();
+      
+      switch (currentSequence.current) {
+        case 'TOP_ARTISTS':
           void handleTopArtistsComplete();
-        } else if (showTopHits && !isTopHitsFading) {
-          setIsTopHitsFading(true);
-        }
+          break;
+        case 'TOP_HITS':
+          void handleTopHitsComplete();
+          break;
+        case 'HITS_ANALYSIS':
+          void handleHitsAnalysisComplete();
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    showTopArtists,
-    isTopArtistsFading,
-    showTopHits,
-    isTopHitsFading,
-    handleTopArtistsComplete
-  ]);
+  }, [handleTopArtistsComplete, handleTopHitsComplete, handleHitsAnalysisComplete]);
 
-  // Dynamic class names for components
-  const userStatsClassNames = `absolute inset-0 flex items-center justify-center 
-    ${showUserStats ? 'block' : 'hidden'}
-    ${isUserStatsFading ? 'fade-out' : ''}`;
-
-  const artistQuizClassNames = `absolute inset-0 flex items-center justify-center 
-    ${showArtistQuiz ? 'block' : 'hidden'}
-    ${isArtistQuizFading ? 'fade-out' : 'fade-in'}`;
-
-  const topArtistsClassNames = `absolute inset-0 flex items-center justify-center 
-    ${showTopArtists ? 'block' : 'hidden'}
-    ${isTopArtistsFading ? 'fade-out' : 'fade-in'}`;
-
-  const topAlbumsClassNames = `absolute inset-0 flex items-center justify-center 
-    ${showTopAlbums ? 'block' : 'hidden'}
-    ${isTopAlbumsFading ? 'fade-out' : 'fade-in'}`;
-
-  const topHitsClassNames = `absolute inset-0 flex items-center justify-center 
-    ${showTopHits ? 'block' : 'hidden'}
-    ${isTopHitsFading ? 'fade-out' : 'fade-in'}`;
+  // Generate component class names
+  const getComponentClassNames = (key: keyof typeof componentStates) => `
+    absolute inset-0 flex items-center justify-center 
+    ${componentStates[key].show ? 'block' : 'hidden'}
+    ${componentStates[key].fading ? 'fade-out' : 'fade-in'}
+  `;
 
   return (
     <div className={`min-h-screen w-full bg-[#000412] flex items-center justify-center ${isVisible ? 'fade-in' : 'opacity-0'}`}>
@@ -165,9 +231,9 @@ export default function Wrapped() {
           priority
         />
         
-        {/* Centered Content Container */}
+        {/* Centered Message */}
         <div className="absolute inset-0 flex items-center justify-center">
-          {showText && (
+          {messageState.isVisible && (
             <div className="text-center">
               <h1 
                 className={`
@@ -179,31 +245,35 @@ export default function Wrapped() {
                   inline-block
                 `}
               >
-                {currentText}
+                {messageState.text}
               </h1>
             </div>
           )}
         </div>
 
-        {/* Component Containers */}
-        <div className={userStatsClassNames}>
+        {/* Components */}
+        <div className={getComponentClassNames('userStats')}>
           <UserStats />
         </div>
 
-        <div className={artistQuizClassNames}>
+        <div className={getComponentClassNames('artistQuiz')}>
           <ArtistQuiz onComplete={handleQuizComplete} />
         </div>
 
-        <div className={topArtistsClassNames}>
+        <div className={getComponentClassNames('topArtists')}>
           <TopArtists />
         </div>
 
-        <div className={topAlbumsClassNames}>
+        <div className={getComponentClassNames('topAlbums')}>
           <TopAlbums onComplete={handleTopAlbumsComplete} />
         </div>
 
-        <div className={topHitsClassNames}>
+        <div className={getComponentClassNames('topHits')}>
           <TopHits />
+        </div>
+
+        <div className={getComponentClassNames('hitsAnalysis')}>
+          <HitsAnalysis onComplete={handleHitsAnalysisComplete} />
         </div>
       </div>
     </div>
