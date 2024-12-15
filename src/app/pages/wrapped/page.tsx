@@ -1,15 +1,13 @@
 "use client";
 
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { Pixelify_Sans } from 'next/font/google';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import UserStats from '@/app/components/UserStats';
 import ArtistQuiz from '@/app/components/ArtistQuiz';
 import TopArtists from '@/app/components/TopArtists';
 import TopAlbums from '@/app/components/TopAlbums';
 import TopHits from '@/app/components/TopHits';
-import HitsAnalysis from '@/app/components/HitsAnalysis';
 
 const pixelifySans = Pixelify_Sans({ 
   subsets: ['latin'],
@@ -22,14 +20,10 @@ const FADE_DURATION = 1000;
 const USER_STATS_DURATION = 5000;
 
 export default function Wrapped() {
-  const router = useRouter();
-  // States for main visibility and text
+  // Main visibility and text states
   const [isVisible, setIsVisible] = useState(false);
   const [currentText, setCurrentText] = useState('WELCOME TO SPOTIFY WRAPPED!');
-  const [isAnimating, setIsAnimating] = useState(true);
   const [showText, setShowText] = useState(true);
-  const [showFinalMessage, setShowFinalMessage] = useState(false);
-  const [showReturnPrompt, setShowReturnPrompt] = useState(false);
 
   // Component visibility states
   const [showUserStats, setShowUserStats] = useState(false);
@@ -37,7 +31,6 @@ export default function Wrapped() {
   const [showTopArtists, setShowTopArtists] = useState(false);
   const [showTopAlbums, setShowTopAlbums] = useState(false);
   const [showTopHits, setShowTopHits] = useState(false);
-  const [showHitsAnalysis, setShowHitsAnalysis] = useState(false);
 
   // Fading states
   const [isUserStatsFading, setIsUserStatsFading] = useState(false);
@@ -45,23 +38,21 @@ export default function Wrapped() {
   const [isTopArtistsFading, setIsTopArtistsFading] = useState(false);
   const [isTopAlbumsFading, setIsTopAlbumsFading] = useState(false);
   const [isTopHitsFading, setIsTopHitsFading] = useState(false);
-  const [isHitsAnalysisFading, setIsHitsAnalysisFading] = useState(false);
-  const [isFinalFading, setIsFinalFading] = useState(false);
 
-  const showMessage = async (message: string) => {
-    if (showTopHits || showHitsAnalysis || showFinalMessage) return;
+  const showMessage = useCallback(async (message: string) => {
+    if (showTopHits) return;
   
     setCurrentText(message);
     setShowText(true);
-    setIsAnimating(true);
     await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
-    if (!showTopHits && !showHitsAnalysis && !showFinalMessage) {
+    
+    if (!showTopHits) {
       setShowText(false);
       await new Promise(resolve => setTimeout(resolve, TRANSITION_DELAY));
     }
-  };
+  }, [showTopHits]);
 
-  const fadeOutComponent = async (
+  const fadeOutComponent = useCallback(async (
     setFading: (value: boolean) => void,
     setShow: (value: boolean) => void
   ) => {
@@ -69,120 +60,80 @@ export default function Wrapped() {
     await new Promise(resolve => setTimeout(resolve, FADE_DURATION));
     setShow(false);
     setFading(false);
-  };
+  }, []);
 
-  const handleFinalReturn = async () => {
-    setIsFinalFading(true);
-    await new Promise(resolve => setTimeout(resolve, FADE_DURATION));
-    router.push('/');
-  };
-
-  const sequence = async () => {
-    // Initial sequence
-    await showMessage('WELCOME TO SPOTIFY WRAPPED!');
-    await showMessage('THIS YEAR WAS FULL OF\nMEMORABLE MUSIC MOMENTS');
-    
-    // UserStats sequence
-    setShowUserStats(true);
-    await new Promise(resolve => setTimeout(resolve, USER_STATS_DURATION));
-    await fadeOutComponent(setIsUserStatsFading, setShowUserStats);
-    
-    // Pre-quiz messages
-    await showMessage('BUT ONE ARTIST TOOK THE SPOTLIGHT');
-    await showMessage('...WITH OVER 26.6 BILLION STREAMS!');
-    await showMessage('CAN YOU GUESS WHO CLAIMED\nTHE CROWN THIS YEAR?');
-    
-    // Show Artist Quiz
-    setShowArtistQuiz(true);
-  };
-
-  const handleQuizComplete = async () => {
+  const handleQuizComplete = useCallback(async () => {
     await fadeOutComponent(setIsArtistQuizFading, setShowArtistQuiz);
     setShowTopArtists(true);
-  };
+  }, [fadeOutComponent]);
 
-  const handleTopArtistsComplete = async () => {
+  const handleTopArtistsComplete = useCallback(async () => {
     await fadeOutComponent(setIsTopArtistsFading, setShowTopArtists);
     
-    // Album sequence messages
     await showMessage('THESE TOP ARTISTS DOMINATED CHARTS');
     await showMessage('...BUT WHICH ALBUMS');
     await showMessage('HAD EVERYONE HITTING REPEAT?');
     
     setShowTopAlbums(true);
-  };
+  }, [fadeOutComponent, showMessage]);
 
-  const handleTopAlbumsComplete = async () => {
-    if (showHitsAnalysis) return;
+  const handleTopAlbumsComplete = useCallback(async () => {
+    if (showTopHits) return;
   
     await fadeOutComponent(setIsTopAlbumsFading, setShowTopAlbums);
     
     if (!showTopHits) {
-      await showMessage('NOW, LET\'S DIVE SONGS THAT DEFINED SPOTIFY THIS YEAR');
+      await showMessage('NOW, LET\'S DIVE INTO SONGS THAT DEFINED SPOTIFY THIS YEAR');
       await showMessage('DID ANY OF YOUR FAVORITES MAKE THE LIST?');
       setShowTopHits(true);
     }
-  };
+  }, [fadeOutComponent, showMessage, showTopHits]);
 
-  const handleTopHitsComplete = async () => {
-    if (showHitsAnalysis) return;
+  const sequence = useCallback(async () => {
+    await showMessage('WELCOME TO SPOTIFY WRAPPED!');
+    await showMessage('THIS YEAR WAS FULL OF\nMEMORABLE MUSIC MOMENTS');
     
-    await fadeOutComponent(setIsTopHitsFading, setShowTopHits);
-    setShowHitsAnalysis(true);
-  };
-
-  const handleHitsAnalysisComplete = async () => {
-    await fadeOutComponent(setIsHitsAnalysisFading, setShowHitsAnalysis);
+    setShowUserStats(true);
+    await new Promise(resolve => setTimeout(resolve, USER_STATS_DURATION));
+    await fadeOutComponent(setIsUserStatsFading, setShowUserStats);
     
-    // Reset all component states to ensure they don't reappear
-    setShowUserStats(false);
-    setShowArtistQuiz(false);
-    setShowTopArtists(false);
-    setShowTopAlbums(false);
-    setShowTopHits(false);
+    await showMessage('BUT ONE ARTIST TOOK THE SPOTLIGHT');
+    await showMessage('...WITH OVER 26.6 BILLION STREAMS!');
+    await showMessage('CAN YOU GUESS WHO CLAIMED\nTHE CROWN THIS YEAR?');
     
-    // Show final message with typing animation
-    setShowFinalMessage(true);
-    setCurrentText('AND THAT\'S A WRAP, STAY TUNED FOR NEXT TIME!');
-    
-    // Wait for typing animation to complete before showing return prompt
-    await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
-    setShowReturnPrompt(true);
-  };
+    setShowArtistQuiz(true);
+  }, [showMessage, fadeOutComponent]);
 
   // Initial sequence trigger
   useEffect(() => {
     setIsVisible(true);
-    sequence();
-  }, []);
+    void sequence();
+  }, [sequence]);
 
-  // Component-specific keyboard handlers
+  // Global spacebar handler
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') return;
-      event.preventDefault();
-
-      if (showTopArtists && !isTopArtistsFading) {
-        handleTopArtistsComplete();
-      } else if (showTopHits && !isTopHitsFading) {
-        handleTopHitsComplete();
-      } else if (showHitsAnalysis && !isHitsAnalysisFading) {
-        handleHitsAnalysisComplete();
-      } else if (showFinalMessage && showReturnPrompt && !isFinalFading) {
-        handleFinalReturn();
+      if (event.code === 'Space') {
+        event.preventDefault();
+        if (showTopArtists && !isTopArtistsFading) {
+          void handleTopArtistsComplete();
+        } else if (showTopHits && !isTopHitsFading) {
+          setIsTopHitsFading(true);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    showTopArtists, isTopArtistsFading,
-    showTopHits, isTopHitsFading,
-    showHitsAnalysis, isHitsAnalysisFading,
-    showFinalMessage, showReturnPrompt, isFinalFading
+    showTopArtists,
+    isTopArtistsFading,
+    showTopHits,
+    isTopHitsFading,
+    handleTopArtistsComplete
   ]);
 
-  // Class names for component containers
+  // Dynamic class names for components
   const userStatsClassNames = `absolute inset-0 flex items-center justify-center 
     ${showUserStats ? 'block' : 'hidden'}
     ${isUserStatsFading ? 'fade-out' : ''}`;
@@ -203,12 +154,8 @@ export default function Wrapped() {
     ${showTopHits ? 'block' : 'hidden'}
     ${isTopHitsFading ? 'fade-out' : 'fade-in'}`;
 
-  const hitsAnalysisClassNames = `absolute inset-0 flex items-center justify-center 
-    ${showHitsAnalysis ? 'block' : 'hidden'}
-    ${isHitsAnalysisFading ? 'fade-out' : 'fade-in'}`;
-
   return (
-    <div className={`min-h-screen w-full bg-[#000412] flex items-center justify-center ${isVisible ? 'fade-in' : 'opacity-0'} ${isFinalFading ? 'fade-out' : ''}`}>
+    <div className={`min-h-screen w-full bg-[#000412] flex items-center justify-center ${isVisible ? 'fade-in' : 'opacity-0'}`}>
       <div className="relative w-5/6 aspect-video">
         <Image
           src="/wrapped-bg.png"
@@ -219,8 +166,8 @@ export default function Wrapped() {
         />
         
         {/* Centered Content Container */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          {(showText || showFinalMessage) && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          {showText && (
             <div className="text-center">
               <h1 
                 className={`
@@ -231,23 +178,10 @@ export default function Wrapped() {
                   whitespace-pre-line
                   inline-block
                 `}
-                onAnimationEnd={() => setIsAnimating(false)}
               >
                 {currentText}
               </h1>
             </div>
-          )}
-
-          {/* Return Prompt */}
-          {showReturnPrompt && (
-            <h2 className={`
-              ${pixelifySans.className}
-              text-[2vw] sm:text-[2vw] md:text-[2vw] lg:text-[24px]
-              text-center mt-8
-              fade-in
-            `}>
-              PRESS THE <span className="font-bold text-[#2FFD2F] blink-animation">( SPACEBAR )</span> TO RETURN
-            </h2>
           )}
         </div>
 
@@ -270,10 +204,6 @@ export default function Wrapped() {
 
         <div className={topHitsClassNames}>
           <TopHits />
-        </div>
-
-        <div className={hitsAnalysisClassNames}>
-          <HitsAnalysis />
         </div>
       </div>
     </div>

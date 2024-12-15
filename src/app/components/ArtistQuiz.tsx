@@ -1,5 +1,3 @@
-"use client";
-
 import Image from 'next/image';
 import { Pixelify_Sans } from 'next/font/google';
 import { useState, useEffect } from 'react';
@@ -23,7 +21,6 @@ interface ArtistQuizProps {
 
 const ArtistQuiz: React.FC<ArtistQuizProps> = ({ onComplete }) => {
   const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -60,14 +57,14 @@ const ArtistQuiz: React.FC<ArtistQuizProps> = ({ onComplete }) => {
   `;
 
   return (
-    <div className={`w-full h-full flex flex-col items-center justify-center ${isVisible ? 'fade-in' : 'opacity-0'}`}>
+    <div className="w-full h-full flex flex-col items-center justify-center fade-in">
       {/* Title */}
       <h2 className={`
         ${pixelifySans.className}
         text-[2.5vw] sm:text-[2.5vw] md:text-[2.5vw] lg:text-[32px]
         mb-[3vw] sm:mb-[3vw] md:mb-[3vw] lg:mb-10
       `}>
-        <span className="text-white">WHO WAS THIS YEAR'S </span>
+        <span className="text-white">WHO WAS THIS YEAR&apos;S </span>
         <span className="text-[#2FFD2F]">TOP ARTIST</span>
         <span className="text-white">?</span>
       </h2>
