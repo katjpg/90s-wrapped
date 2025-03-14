@@ -1,6 +1,9 @@
 import Image from 'next/image';
 import { Pixelify_Sans } from 'next/font/google';
 import { useState, useEffect } from 'react';
+import { useSelectSound } from '@/app/hooks/useSelectSound';
+import { useHoverSound } from '@/app/hooks/useHoverSound';
+import { useConfirmSound } from '@/app/hooks/useConfirmSound';
 
 const pixelifySans = Pixelify_Sans({ 
   subsets: ['latin'],
@@ -16,25 +19,33 @@ const artists = [
 type Artist = typeof artists[number];
 
 interface ArtistQuizProps {
-  onComplete: () => void;
+  onComplete: (isCorrect: boolean, selectedArtist: Artist) => void;
 }
 
 const ArtistQuiz: React.FC<ArtistQuizProps> = ({ onComplete }) => {
   const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
+  
+  // Sound effects
+  const playSelectSound = useSelectSound();
+  const playHoverSound = useHoverSound();
+  const { playConfirmSound } = useConfirmSound();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space' && selectedArtist) {
         event.preventDefault();
-        onComplete();
+        playConfirmSound();
+        // Pass whether the selection is correct (TAYLOR SWIFT) and the selected artist
+        onComplete(selectedArtist === "TAYLOR SWIFT", selectedArtist);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedArtist, onComplete]);
+  }, [selectedArtist, onComplete, playConfirmSound]);
 
   const handleArtistSelect = (artist: Artist) => {
+    playSelectSound();
     setSelectedArtist(artist);
   };
 
@@ -77,6 +88,7 @@ const ArtistQuiz: React.FC<ArtistQuizProps> = ({ onComplete }) => {
             <button
               key={artist}
               onClick={() => handleArtistSelect(artist)}
+              onMouseEnter={playHoverSound}
               className={buttonClass(artist)}
               tabIndex={0}
               role="button"
@@ -93,8 +105,11 @@ const ArtistQuiz: React.FC<ArtistQuizProps> = ({ onComplete }) => {
           ))}
         </div>
 
-        {/* Mystery Icon */}
-        <div className="relative w-[25vw] h-[25vw] max-w-[350px] max-h-[350px] min-w-[150px] min-h-[150px]">
+        {/* Mystery Icon with hover animation */}
+        <div 
+          className="relative w-[25vw] h-[25vw] max-w-[350px] max-h-[350px] min-w-[150px] min-h-[150px] cursor-album-hover"
+          onMouseEnter={playHoverSound}
+        >
           <Image
             src="/mystery.svg"
             alt="Mystery icon"
@@ -114,7 +129,7 @@ const ArtistQuiz: React.FC<ArtistQuizProps> = ({ onComplete }) => {
           <span className="text-white">( GO FOR IT, TAKE A GUESS )</span>
         ) : (
           <>
-            PRESS THE <span className="font-bold text-[#2FFD2F] blink-animation">( SPACEBAR )</span> TO CONTINUE
+            PRESS THE <span className="font-bold text-[#2FFD2F] blink-animation">[ SPACEBAR ]</span> TO CONTINUE
           </>
         )}
       </h2>

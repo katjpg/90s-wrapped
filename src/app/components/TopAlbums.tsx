@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import { Pixelify_Sans } from 'next/font/google';
 import { useState, useEffect } from 'react';
+import { useSelectSound } from '@/app/hooks/useSelectSound';
+import { useHoverSound } from '@/app/hooks/useHoverSound';
 
 const pixelifySans = Pixelify_Sans({ 
   subsets: ['latin'],
@@ -18,28 +20,73 @@ interface Album {
 
 const TopAlbums = ({ onComplete }: { onComplete: () => void }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+  
+  // Sound effects
+  const playSelectSound = useSelectSound();
+  const playHoverSound = useHoverSound();
+  
   const [albums, setAlbums] = useState<Album[]>([
     { id: 1, image: '/billie-album.png', alt: 'Billie album cover', revealed: false },
     { id: 2, image: '/taylor-album.png', alt: 'Taylor album cover', revealed: false },
     { id: 3, image: '/sabrina-album.png', alt: 'Sabrina album cover', revealed: false }
   ]);
 
+  // Track when all albums are revealed
+  const [allRevealed, setAllRevealed] = useState(false);
+
+  // Handle initial fade-in
   useEffect(() => {
     setIsVisible(true);
   }, []);
 
+  // Handle manual completion via spacebar
   useEffect(() => {
-    if (albums.every(album => album.revealed)) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'Space' && !isFadingOut) {
+        event.preventDefault();
+        handleComplete();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFadingOut]);
+
+  // Check if all albums are revealed
+  useEffect(() => {
+    if (albums.every(album => album.revealed) && !allRevealed) {
+      setAllRevealed(true);
+      
+      // Wait before auto-transitioning (3 seconds)
       const timer = setTimeout(() => {
-        onComplete();
-      }, 2000); 
-  
+        handleComplete();
+      }, 3000);
+      
       return () => clearTimeout(timer);
     }
-  }, [albums, onComplete]);
+  }, [albums, allRevealed]);
+
+  // Handle component transition and completion
+  const handleComplete = () => {
+    if (isFadingOut) return;
+    
+    // Start fade out animation
+    setIsFadingOut(true);
+    
+    // Call onComplete after fade-out animation finishes
+    setTimeout(() => {
+      if (onComplete) {
+        onComplete();
+      }
+    }, 1000);
+  };
 
   const handleAlbumClick = (albumId: number) => {
     if (!albums.find(album => album.id === albumId)?.revealed) {
+      // Play sound when revealing an album
+      playSelectSound();
+      
       setAlbums(prevAlbums =>
         prevAlbums.map(album =>
           album.id === albumId ? { ...album, revealed: true } : album
@@ -49,7 +96,13 @@ const TopAlbums = ({ onComplete }: { onComplete: () => void }) => {
   };
 
   return (
-    <div className={`w-full h-full flex flex-col items-center justify-between py-8 ${isVisible ? 'fade-in' : 'opacity-0'}`}>
+    <div className={`
+      w-full h-full flex flex-col items-center justify-between py-8 
+      transition-opacity duration-1000 ease-out
+      ${isVisible && !isFadingOut ? 'opacity-100' : ''}
+      ${isFadingOut ? 'opacity-0' : ''}
+      ${!isVisible ? 'opacity-0' : ''}
+    `}>
       {/* Title */}
       <h2 className={`
         ${pixelifySans.className}
@@ -76,7 +129,8 @@ const TopAlbums = ({ onComplete }: { onComplete: () => void }) => {
           <div
             key={album.id}
             onClick={() => handleAlbumClick(album.id)}
-            className="relative cursor-pointer"
+            onMouseEnter={playHoverSound}
+            className="relative cursor-pointer cursor-album-hover"
             role="button"
             tabIndex={0}
             aria-label={`Reveal ${album.alt}`}
@@ -116,8 +170,11 @@ const TopAlbums = ({ onComplete }: { onComplete: () => void }) => {
         ${pixelifySans.className}
         text-[2vw] sm:text-[2vw] md:text-[2vw] lg:text-[24px] 
       `}>
-        <span className="text-[#2FFD2F]">CLICK</span>
-        <span className="text-white"> TO REVEAL</span>
+        {allRevealed ? (
+          <>PRESS THE <span className="font-bold text-[#2FFD2F] blink-animation">[ SPACEBAR ]</span> TO CONTINUE</>
+        ) : (
+          <><span className="text-[#2FFD2F]">CLICK</span><span className="text-white"> TO REVEAL</span></>
+        )}
       </h2>
     </div>
   );

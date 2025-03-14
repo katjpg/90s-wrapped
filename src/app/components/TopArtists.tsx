@@ -20,6 +20,8 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
   const [isMysteryFading, setIsMysteryFading] = useState(false);
   const [isWinnerFading, setIsWinnerFading] = useState(false);
   const [showTopTen, setShowTopTen] = useState(false);
+  // Add state for the shaking effect
+  const [isShaking, setIsShaking] = useState(false);
 
   // Reset animation states when forceReset changes
   useEffect(() => {
@@ -56,6 +58,11 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
 
     // Start animation sequence
     addTimeout(() => setIsVisible(true), 100);
+    
+    // Start the shaking animation before revealing
+    addTimeout(() => setIsShaking(true), 1000);
+    addTimeout(() => setIsShaking(false), 2000); // Stop shaking before fade
+    
     addTimeout(() => setIsMysteryFading(true), 2000);
     addTimeout(() => setShowTaylorSwift(true), 3500);
     addTimeout(() => setShowFinalText(true), 4300);
@@ -69,14 +76,14 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
   }, [forceReset]); // Add forceReset as dependency
 
   return (
-    <div className={`w-full h-full flex flex-col items-center justify-center ${isVisible ? 'fade-in' : 'opacity-0'}`}>
+    <div className={`w-full h-full flex flex-col items-center justify-center px-4 ${isVisible ? 'fade-in' : 'opacity-0'}`}>
       {!showTopTen ? (
-        // Winner Reveal Container
-        <div className={`flex flex-col items-center transform transition-all duration-[1500ms] ease-in-out ${isWinnerFading ? 'opacity-0 scale-105' : ''}`}>
+        // Winner Reveal Container - Centered with max width for larger screens
+        <div className={`flex flex-col items-center transform transition-all duration-[1500ms] ease-in-out max-w-md w-full ${isWinnerFading ? 'opacity-0 scale-105' : ''}`}>
           {/* Images Container */}
           <div className="relative flex flex-col items-center mb-2">
-            {/* Crown Image */}
-            <div className="relative w-[8vw] h-[8vw] max-w-[60px] max-h-[100px] min-w-[20px] min-h-[20px] -mb-[2vw] z-10">
+            {/* Crown Image - Fixed sizing with responsive adjustments */}
+            <div className="relative w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-16 -mb-2 sm:-mb-3 z-10">
               <Image
                 src="/crown.svg"
                 alt="Crown icon"
@@ -85,11 +92,14 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
               />
             </div>
             
-            {/* Mystery/Taylor Image Container */}
-            <div className="relative w-[25vw] h-[25vw] max-w-[350px] max-h-[350px] min-w-[150px] min-h-[150px]">
-              {/* Mystery Icon */}
-              <div className={`absolute inset-0 transform transition-all duration-[1500ms] ease-in-out
-                ${isMysteryFading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`}>
+            {/* Mystery/Taylor Image Container - Responsive fixed sizing */}
+            <div className="relative w-[150px] h-[150px] sm:w-[180px] sm:h-[180px] md:w-[220px] md:h-[220px] lg:w-[280px] lg:h-[280px]">
+              {/* Mystery Icon with shaking effect */}
+              <div 
+                className={`absolute inset-0 transform transition-all duration-[1500ms] ease-in-out
+                  ${isMysteryFading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}
+                  ${isShaking ? 'animate-mystery-shake' : ''}`}
+              >
                 <Image
                   src="/mystery.svg"
                   alt="Mystery icon"
@@ -116,8 +126,9 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
           {/* Winner Text */}
           <h2 className={`
             ${pixelifySans.className}
-            text-[2.5vw] sm:text-[2.5vw] md:text-[2.5vw] lg:text-[32px]
+            text-base sm:text-lg md:text-xl lg:text-2xl
             transform transition-all duration-[1500ms] ease-in-out
+            text-center px-2 whitespace-nowrap
             ${showFinalText ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
           `}>
             {!showFinalText ? (
@@ -132,19 +143,19 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
           </h2>
         </div>
       ) : (
-        // Top Ten List Container
-        <div className="w-full flex flex-col items-center justify-between h-full py-12 fade-in">
+        // Top Ten List Container - Full width with padding
+        <div className="w-full flex flex-col items-center justify-between h-full py-6 sm:py-8 md:py-12 fade-in px-4">
           {/* Top Text */}
           <h2 className={`
             ${pixelifySans.className}
-            text-[2.5vw] sm:text-[2.5vw] md:text-[2.5vw] lg:text-[32px]
-            text-white mb-8
+            text-base sm:text-xl md:text-2xl lg:text-3xl
+            text-white mb-4 sm:mb-6 md:mb-8
           `}>
             TOP 10 ARTISTS GLOBALLY
           </h2>
 
-          {/* Top Artists Image */}
-          <div className="relative w-[80%] h-[60%]">
+          {/* Top Artists Image - Contained within parent */}
+          <div className="relative w-full h-[50%] sm:h-[60%] max-w-2xl mx-auto">
             <Image
               src="/top-artists.png"
               alt="Top 10 artists list"
@@ -157,10 +168,10 @@ const TopArtists: React.FC<TopArtistsProps> = ({ forceReset = false }) => {
           {/* Bottom Text */}
           <h2 className={`
             ${pixelifySans.className}
-            text-[2vw] sm:text-[2vw] md:text-[2vw] lg:text-[24px]
-            text-center mt-8
+            text-sm sm:text-base md:text-xl lg:text-2xl
+            text-center mt-4 sm:mt-6 md:mt-8 px-2
           `}>
-            PRESS THE <span className="font-bold text-[#2FFD2F] blink-animation">( SPACEBAR )</span> TO CONTINUE
+            PRESS THE <span className="font-bold text-[#2FFD2F] blink-animation">[ SPACEBAR ]</span> TO CONTINUE
           </h2>
         </div>
       )}
