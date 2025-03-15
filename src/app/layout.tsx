@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import CursorProvider from "@/app/components/CursorProvider";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({
         <CursorProvider>
           {children}
         </CursorProvider>
+        <Analytics />
       </body>
     </html>
   );
